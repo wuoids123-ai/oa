@@ -1,1 +1,196 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mi flujo de dinero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef3f1;--card:#fff;--ink:#2b3a37;--mut:#8a9a96;--line:#e8eeec;--acc:#4a9d88;--accsoft:#e3f2ee;--neg:#d9695a;--sh:0 2px 14px rgba(43,58,55,.07)}
+@media (prefers-color-scheme:dark){:root{--bg:#141b19;--card:#1c2623;--ink:#e4ede9;--mut:#8b9d97;--line:#2a3733;--acc:#5bb5a0;--accsoft:#22332e;--neg:#e5857a;--sh:none}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Nunito,"Segoe UI",system-ui,sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:32px 16px 80px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:6px}
+h1{font-size:26px;font-weight:700;margin:0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,input{font:inherit;color:inherit}
+button{background:var(--card);border:0;border-radius:999px;padding:7px 16px;cursor:pointer;box-shadow:var(--sh);font-size:14px;font-weight:600;transition:transform .15s}
+button:hover{transform:translateY(-1px)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
+#exp{background:var(--acc);color:#fff}
+input[type=month]{border:0;background:var(--card);border-radius:999px;padding:7px 14px;box-shadow:var(--sh);font-weight:600}
+#msg{color:var(--mut);font-size:14px;margin:0 0 24px}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px}
+.k{background:var(--card);border-radius:16px;padding:14px 16px;box-shadow:var(--sh)}
+.k span{display:block;color:var(--mut);font-size:13px;font-weight:600}
+.k b{font-size:20px;font-weight:700}
+.k.big{grid-column:1/-1;background:var(--acc);color:#fff;padding:18px 20px}
+.k.big span{color:rgba(255,255,255,.85)}.k.big b{font-size:34px}
+.k.big b.neg{color:#fff}
+.k.big:has(b.neg){background:var(--neg)}
+.grid{display:flex;flex-direction:column;gap:16px}
+.sec{background:var(--card);border-radius:18px;box-shadow:var(--sh);padding:6px 18px 8px;--c:var(--acc)}
+.sec:nth-child(2),.sec:nth-child(3),.sec:nth-child(4){--c:var(--neg)}
+.sec:nth-child(5),.sec:nth-child(6){--c:#6c8fd6}
+.sec h2{margin:0;padding:12px 0 8px;font-size:17px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.sec h2 span:first-child::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);margin-right:10px}
+.sec h2 span:last-child{font-weight:700;color:var(--c)}
+table{width:100%;border-collapse:collapse}
+td{border-top:1px solid var(--line);padding:0}
+td input[type=text],td input[type=number]{width:100%;border:0;background:transparent;padding:11px 4px}
+td input[type=number]{text-align:right;-moz-appearance:textfield;font-weight:600}
+td input::-webkit-outer-spin-button,td input::-webkit-inner-spin-button{-webkit-appearance:none}
+td input::placeholder{color:var(--mut);font-weight:400}
+td.chk{width:30px}td.chk input{accent-color:var(--acc);width:18px;height:18px}
+td.x{width:28px;text-align:right}
+td.x button{box-shadow:none;background:none;color:var(--mut);padding:2px 6px;opacity:.35}
+tr:hover td.x button{opacity:1}
+tr.paid input[type=text]{text-decoration:line-through;color:var(--mut)}
+.add{box-shadow:none;background:var(--accsoft);color:var(--acc);margin:8px 0 6px;font-size:13px}
+.meta{padding:8px 0;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--mut);border-top:1px solid var(--line)}
+.meta input{width:120px;border:0;border-radius:8px;background:var(--accsoft);padding:6px 10px;text-align:right;font-weight:600}
+.bg{height:8px;background:var(--accsoft);border-radius:99px;flex:1;min-width:100px;overflow:hidden}.bg i{display:block;height:100%;background:#6c8fd6;border-radius:99px;transition:width .4s}
+small{color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Mi flujo de dinero</h1>
+  <div class="bar">
+    <input type="month" id="mes" aria-label="Mes">
+    <button id="copiar" title="Copia ingresos, gastos fijos y cuentas del mes anterior">Copiar mes anterior</button>
+    <button id="exp">Exportar a Excel</button>
+    <button id="imp">Importar Excel</button>
+    <input type="file" id="file" accept=".csv" hidden>
+  </div>
+</header>
+<p id="msg">Todo se guarda solo en este navegador. De vez en cuando exporta a Excel como respaldo.</p>
 
+<div class="sum" id="sum"></div>
+<div class="grid" id="grid"></div>
+</div>
+
+<script>
+const KEY='flujoDinero.v1';
+const SECS=[
+ {id:'ingresos',t:'Ingresos del mes',cls:'pos'},
+ {id:'fijos',t:'Gastos fijos',cls:'neg'},
+ {id:'cuentas',t:'Cuentas por pagar',cls:'neg',paid:true},
+ {id:'otros',t:'Otros gastos',cls:'neg'},
+ {id:'ahorro',t:'Ahorro del mes',cls:'sav'}
+];
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+S=S||{meses:{},plata:[],meta:0};
+let mes=new Date().toISOString().slice(0,7);
+const $=s=>document.querySelector(s);
+const clp=n=>'$'+Math.round(n||0).toLocaleString('es-CL');
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const M=()=>S.meses[mes]||(S.meses[mes]={ingresos:[],fijos:[],cuentas:[],otros:[],ahorro:[]});
+const sum=a=>a.reduce((t,r)=>t+(+r.m||0),0);
+
+function totals(){
+  const m=M(),ing=sum(m.ingresos),fij=sum(m.fijos),cue=sum(m.cuentas),otr=sum(m.otros),aho=sum(m.ahorro);
+  const pend=sum(m.cuentas.filter(r=>!r.p));
+  const gas=fij+cue+otr, disp=ing-gas-aho;
+  $('#sum').innerHTML=
+   k('Ingresos',ing)+k('Gastos',gas)+k('Ahorro',aho)+
+   k('Cuentas por pagar',pend)+
+   `<div class="k big"><span>Dinero disponible</span><b class="${disp<0?'neg':''}">${clp(disp)}</b></div>`;
+  SECS.forEach(s=>{const e=$('#tot-'+s.id);if(e)e.textContent=clp(sum(m[s.id]))});
+  const fx=sum(S.plata);const e=$('#tot-plata');if(e)e.textContent=clp(fx);
+  const ta=sum(S.meses?Object.values(S.meses).flatMap(x=>x.ahorro):[]);
+  const e2=$('#acum');if(e2){e2.textContent=clp(ta);const p=S.meta>0?Math.min(100,ta/S.meta*100):0;$('#bar').style.width=p+'%';$('#pct').textContent=S.meta>0?Math.round(p)+'%':''}
+}
+const k=(l,v)=>`<div class="k"><span>${l}</span><b>${clp(v)}</b></div>`;
+
+function rows(list,key,paid){
+  return list.map((r,i)=>`<tr class="${r.p?'paid':''}">`+
+   (paid?`<td class="chk"><input type="checkbox" data-k="${key}" data-i="${i}" data-f="p" ${r.p?'checked':''} aria-label="Pagado"></td>`:'')+
+   `<td><input type="text" data-k="${key}" data-i="${i}" data-f="n" value="${esc(r.n)}" placeholder="Concepto"></td>`+
+   `<td style="width:130px"><input type="number" data-k="${key}" data-i="${i}" data-f="m" value="${r.m||''}" placeholder="0"></td>`+
+   `<td class="x"><button data-del="${key}" data-i="${i}" aria-label="Eliminar">✕</button></td></tr>`).join('');
+}
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+function render(){
+  const m=M();
+  let h=SECS.map(s=>`<section class="sec"><h2><span>${s.t}</span><span id="tot-${s.id}"></span></h2>
+   <table>${rows(m[s.id],s.id,s.paid)}</table>
+   <button class="add" data-add="${s.id}">+ Agregar</button></section>`).join('');
+  h+=`<section class="sec"><h2><span>Ahorro acumulado</span><span id="acum"></span></h2>
+   <div class="meta"><label for="meta">Meta</label><input type="number" id="meta" value="${S.meta||''}" placeholder="0"><div class="bg"><i id="bar"></i></div><small id="pct"></small></div>
+   <div class="meta"><small>Suma los ahorros de todos los meses registrados.</small></div></section>`;
+  h+=`<section class="sec"><h2><span>Plata fija</span><span id="tot-plata"></span></h2>
+   <table>${rows(S.plata,'plata')}</table><button class="add" data-add="plata">+ Agregar</button>
+   <div class="meta"><small>Dinero que ya tienes: cuentas, depósitos, fondo de emergencia. No depende del mes.</small></div></section>`;
+  $('#grid').innerHTML=h;
+  totals();
+}
+const arr=k=>k==='plata'?S.plata:M()[k];
+
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.id==='meta'){S.meta=+t.value||0;save();totals();return}
+  if(!t.dataset.k)return;
+  const r=arr(t.dataset.k)[t.dataset.i],f=t.dataset.f;
+  if(f==='m')r.m=+t.value||0;else if(f==='n')r.n=t.value;else{r.p=t.checked;t.closest('tr').classList.toggle('paid',t.checked)}
+  save();totals();
+});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.add){arr(b.dataset.add).push({n:'',m:0});save();render();
+    const ins=document.querySelectorAll(`input[data-k="${b.dataset.add}"][data-f="n"]`);ins[ins.length-1].focus()}
+  if(b.dataset.del){arr(b.dataset.del).splice(b.dataset.i,1);save();render()}
+});
+$('#mes').value=mes;
+$('#mes').onchange=e=>{mes=e.target.value||mes;render()};
+
+$('#copiar').onclick=()=>{
+  const d=new Date(mes+'-01');d.setMonth(d.getMonth()-1);
+  const prev=S.meses[d.toISOString().slice(0,7)];
+  if(!prev){alert('No hay datos del mes anterior.');return}
+  if(!confirm('Se agregarán ingresos, gastos fijos y cuentas del mes anterior (cuentas como no pagadas). ¿Continuar?'))return;
+  const m=M();
+  ['ingresos','fijos','cuentas'].forEach(k=>prev[k].forEach(r=>m[k].push({n:r.n,m:r.m,p:false})));
+  save();render();
+};
+
+// Exportar / importar CSV (abre directo en Excel)
+const NAMES={ingresos:'Ingreso',fijos:'Gasto fijo',cuentas:'Cuenta por pagar',otros:'Otro gasto',ahorro:'Ahorro',plata:'Plata fija'};
+const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+$('#exp').onclick=()=>{
+  const L=[['Mes','Tipo','Concepto','Monto','Pagado'].join(';')];
+  Object.keys(S.meses).sort().forEach(ms=>SECS.forEach(s=>S.meses[ms][s.id].forEach(r=>
+    L.push([ms,NAMES[s.id],q(r.n),r.m||0,s.paid?(r.p?'Sí':'No'):''].join(';')))));
+  S.plata.forEach(r=>L.push(['',NAMES.plata,q(r.n),r.m||0,''].join(';')));
+  L.push(['','Meta de ahorro','',S.meta||0,''].join(';'));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\ufeff'+L.join('\r\n')],{type:'text/csv;charset=utf-8'}));
+  a.download='flujo-de-dinero-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+};
+$('#imp').onclick=()=>$('#file').click();
+$('#file').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  if(!confirm('Importar reemplazará los datos actuales. ¿Continuar?')){e.target.value='';return}
+  const lines=(await f.text()).replace(/^\ufeff/,'').split(/\r?\n/).slice(1).filter(Boolean);
+  const inv=Object.fromEntries(Object.entries(NAMES).map(([k,v])=>[v,k]));
+  const N={meses:{},plata:[],meta:0};
+  lines.forEach(l=>{
+    const c=l.match(/("([^"]|"")*"|[^;]*)(;|$)/g).map(x=>x.replace(/;$/,'').replace(/^"|"$/g,'').replace(/""/g,'"'));
+    const [ms,tipo,n,m,p]=c,monto=+m||0;
+    if(tipo==='Meta de ahorro'){N.meta=monto;return}
+    const key=inv[tipo];if(!key)return;
+    if(key==='plata'){N.plata.push({n,m:monto});return}
+    const mm=N.meses[ms]||(N.meses[ms]={ingresos:[],fijos:[],cuentas:[],otros:[],ahorro:[]});
+    mm[key].push({n,m:monto,p:p==='Sí'});
+  });
+  S=N;save();render();e.target.value='';
+};
+render();
+</script>
+</body>
+</html>
